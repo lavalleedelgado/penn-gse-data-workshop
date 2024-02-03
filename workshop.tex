@@ -1,0 +1,308 @@
+\documentclass{beamer}
+\usepackage{tikz}
+\usepackage[edges]{forest}        % Draw linguistic trees.
+\usepackage{listings}             % Extend verbatim environment.
+\usepackage{hyperref}             % Enable hyperlinks.
+\setlength{\parskip}{\baselineskip}
+
+\title{Data Management and Cleaning Workshop}
+\subtitle{Education Policy Research Practicum}
+\author{Patrick Lavallee Delgado}
+\institute{Unviersity of Pennsylvania Graduate School of Education}
+\date{7 February 2023}
+
+% \setbeamertemplate{footline}{
+%   \begin{beamercolorbox}[sep=1ex]{author in head/foot}
+%     \rlap{\textit{\insertshorttitle}}\hfill\hfill\llap{\insertframenumber}
+%   \end{beamercolorbox}
+% }
+
+\titlegraphic{
+  \begin{tikzpicture}[overlay,remember picture]
+    \node[left=0.2cm] at (current page.330){
+      \includegraphics[width=3cm]{in/img/penn-gse-logo.png}
+    };
+  \end{tikzpicture}
+}
+
+\AtBeginSection[]{
+  \begin{frame}
+    \frametitle{Outline}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+
+\forestset{%
+  declare boolean register={my dir tree cont},
+  my dir tree cont=false,
+  my dir tree/.style={
+    for tree={
+      font=\ttfamily,
+      grow'=0,
+      folder,
+      edge label={node [fill, inner sep=1.25pt, midway] {} },
+    },
+    delay={
+      for nodewalk={
+        if my dir tree cont={fake=r}{r},
+        descendants
+      }{content/.wrap value={##1}},
+      if my dir tree cont={}{
+        tikz+={
+          \draw (!r.parent anchor |- !r1.child anchor) ++(\foresteregister{folder indent},0) coordinate (a) -- (current bounding box.south -| a) node [below, font=\footnotesize, gray] {\vdots};
+        },
+      },
+    },
+  },
+}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\section{Data privacy}
+
+% https://www.archives.gov/cui/about
+% https://www.nsf.org/knowledge-library/protect-controlled-unclassified-information
+\begin{frame}{Data privacy}
+
+  \only<1>{
+
+    Data is great and all, but\dots
+
+    Many laws and regulations govern access and disclosure of personal data, rules which extend to research. Major legislation in the US includes:
+
+    \begin{itemize}
+
+      \item National Research Act (IRB)
+      \item FERPA (students)
+      \item COPPA (children online)
+      \item HIPAA (health)
+
+    \end{itemize}
+
+    Some data are subject to more stringent regulation by other jurisdictions, such as GDPR (EU) and CCPA (California).
+
+  }
+
+  \only<2>{
+
+    Some data elements may be particularly sensitive and require special handling.
+
+    \begin{itemize}
+
+      \item Personally identifiable information (PII): information or groupings of information that can distinguish or trace the identity of an individual, e.g. name, social security number.
+
+      \item Controlled unclassified information (CUI): information the government owns that requires safeguarding or dissemination controls as provided by law or regulation, e.g. trade secrets, budget and policy deliberations.
+
+    \end{itemize}
+
+    \begin{alertblock}{Note}
+      Negligence can cause harm. Researchers have a legal and ethical responsibility to ensure data privacy and security.
+    \end{alertblock}
+
+  }
+
+
+\end{frame}
+
+\begin{frame}{Data use}
+
+  A data use agreement (DUA) governs the exchange of data, establishing who is permitted to access the data, how they can use the data, and what can be disclosed of the data.
+
+  The DUA may require that the data be stored and processed in a secure location, e.g. remote server, cold room. It may also require that the data be destroyed upon project completion.
+
+  \begin{alertblock}{Note}
+    We will store data on Box and invite you to the Box folder. \textit{Do not move, copy, or share data out of the Box folder}.
+  \end{alertblock}
+
+\end{frame}
+
+\section{Data management}
+
+\begin{frame}{Repository}
+
+  The repository is the container for all project work. It documents and demonstrates -- in words and code -- how the data answer the research questions, and allows the client to replicate the results.
+
+  Replication should be turnkey. Anyone who returns to your work should be able to:
+
+  \begin{itemize}
+
+    \item Run your code with minimal effort and without error.
+    \item Get the same results in your report and presentation.
+    \item Understand what you did, how you did it, and why.
+
+  \end{itemize}
+
+\end{frame}
+
+\begin{frame}{Sample repository structure}
+
+  \begin{minipage}{.5\textwidth}
+    \centering
+    \begin{forest}
+      my dir tree
+      [
+        [docs/
+          [codebook.pdf]
+          [proposal.pdf]
+        ]
+        [in/
+          [raw.zip]
+          [stu.csv]
+          [sch-nces-xwalk.csv]
+          [ccd.csv]
+        ]
+      ]
+  \end{forest}
+  \end{minipage}%
+  \begin{minipage}{.5\textwidth}
+    \centering
+    \begin{forest}
+      my dir tree,
+      my dir tree cont,
+      [
+        [src/
+          [01-clean-data.r]
+          [02-run-analysis.r]
+        ]
+        [out/
+          [data.rda]
+          [analysis.xlsx]
+        ]
+        [final-presentation.pptx]
+        [final-report.pdf]
+        [README.md]
+      ]
+    \end{forest}
+  \end{minipage}
+
+\end{frame}
+
+\begin{frame}{Documentation}
+
+  \begin{itemize}
+
+    \item \textbf{Describe and defend.} Demonstrate the thought, intention, and thoroughness of your work and help others understand what might not be obvious about the data and analysis.
+
+    \item \textbf{Data description.} Discuss the data used in the analysis with the final report. List the data sources, data elements, summary statistics, and major decisions in cleaning and variable construction.
+
+    \item \textbf{Comment your code.} Provide in-line notes that describe what the code is doing. They helps non-programmers follow along, a reviewer verify the code does as you intend, and your future self pick up from where you left off.
+
+    \item \textbf{README.} This file gives an overview of the repository and how to use it. It also lists any additional requirements for replication, usually software.
+
+  \end{itemize}
+
+\end{frame}
+
+\begin{frame}{Sample README}
+
+  \only<1>{
+    Project name \\
+    Project team \\
+    Date submitted
+
+    Brief description of the project. This repository provides for replication of our findings.
+
+    Contents:\vspace{-1em}
+    \begin{itemize}
+      \item \texttt{in/}
+        \begin{itemize}
+          \item \texttt{raw.zip} Data from client, \textbf{not included}.
+          \item \texttt{ccd.csv} School characteristics from Common Core of Data.
+          \item \dots
+        \end{itemize}
+      \item \texttt{src/}
+        \begin{itemize}
+          \item \texttt{01-clean-data.r} Assembles analysis file from data.
+          \item \texttt{02-run-analysis.r} Creates tables and figures.
+        \end{itemize}
+      \item \dots
+    \end{itemize}
+  }
+
+  \only<2>{
+
+    Requirements:\vspace{-1em}
+    \begin{itemize}
+      \item Data from client
+      \item R version 4.2.3 or later
+      \item tidyverse version 2.0.0 or later
+    \end{itemize}
+
+    How to replicate:\vspace{-1em}
+    \begin{enumerate}
+      \item Satisfy data and software requirements above.
+      \item Open R.
+      \item Set the working directory to this repository.
+      \item Run each program in \texttt{src/} sequentially.
+      \item Find tables and figures in \texttt{out/}.
+    \end{enumerate}
+
+  }
+
+\end{frame}
+
+\begin{frame}[fragile]{Quality assurance}
+
+  \only<1>{
+    \begin{itemize}
+
+      \item \textbf{Do not overwrite raw data.}
+
+      \item \textbf{Programming.} The code should assemble the analysis file and produce all analyses, tables, and figures from the raw data. Nothing should require human intervention.
+
+      \item \textbf{Diagnostics.} Report summary statistics in tables or figures. Do the data make sense? Check what needs to be cleaned and that cleaning happens correctly.
+
+      \item \textbf{Version control.} Save snapshots of programs and output before implementing major changes in case something goes wrong. I recommend Git, but it has a steep learning curve.
+
+      \item \textbf{Code review.} Walk through each program with the project team to check for agreement on cleaning, variable construction, and statistical analysis, as well as for errors.
+
+    \end{itemize}
+  }
+
+  \begin{onlyenv}<2>
+    \begin{itemize}
+
+      \item \textbf{Defensive programming.} Document assumptions of the data and expectations of the code with assert statements that break the program when the assumptions fail.
+
+      \begin{lstlisting}[basicstyle=\ttfamily]
+# There are no missing values.
+stopifnot(all(!is.na(df$x)))
+      \end{lstlisting}
+
+      \item \textbf{Separate code from data.} Data are values and code is behavior. Instead of hardcoding values, load another dataset. This preserves data integrity and provides reusable code.
+
+      \begin{lstlisting}[basicstyle=\ttfamily]
+# This is prone to error.
+# df$sch_nm[df$sch_id == "A"] <- "Abbot"
+
+# Treat data like data.
+sch <- read.csv("in/sch.csv")
+df <- left_join(df, sch, by = "sch_id",
+                relationship = "many-to-one")
+      \end{lstlisting}
+
+    \end{itemize}
+  \end{onlyenv}
+
+\end{frame}
+
+\section{Data cleaning}
+
+\begin{frame}{Workshop}
+
+  Imagine we want to measure student achievement and growth in seventh grade. We have data that follow students from sixth to seventh grade and describe their demographic characteristics and exit exam scores in core subjects.
+
+  The notebooks linked below walk through common data cleaning and analysis tasks on an example dataset engineered to resemble real data.
+
+  \begin{itemize}
+    \item \href{https://github.com/lavalleedelgado/penn-gse-data-workshop/blob/main/src/01-clean-data.ipynb}{Cleaning example}
+    \item \href{https://github.com/lavalleedelgado/penn-gse-data-workshop/blob/main/src/02-run-analysis.ipynb}{Analysis example}
+  \end{itemize}
+
+\end{frame}
+
+\end{document}
