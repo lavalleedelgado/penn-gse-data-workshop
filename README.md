@@ -17,6 +17,7 @@ This repository contains the Data Management and Cleaning Workshop, given to the
 
 ## Requirements
 - R version 4.2.3
+- Jupyter version 1.0.0
 - Quarto version 1.4
 - tidyverse version 2.0.0 or later
 - fastDummies version 1.7.3 or later
