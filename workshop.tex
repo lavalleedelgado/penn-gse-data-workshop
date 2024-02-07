@@ -5,32 +5,60 @@
 \usepackage{hyperref}             % Enable hyperlinks.
 \setlength{\parskip}{\baselineskip}
 
+\usefonttheme{serif}
+\definecolor{pennred1}{RGB}{192,0,0}
+\definecolor{pennred2}{RGB}{153,0,0}
+\definecolor{pennred3}{RGB}{238,45,56}
+\definecolor{pennblue}{RGB}{0,40,86}
+
+\setbeamercolor{title}{fg=white}
+\setbeamercolor{author}{fg=white}
+\setbeamercolor{institute}{fg=white}
+\setbeamercolor{date}{fg=white}
+
+\usebackgroundtemplate{
+  \parbox[c][\paperheight][c]{\paperwidth}{\centering\includegraphics[width=5in]{tex/slide-bg.png}}
+}
+
+\setbeamerfont{section in head/foot}{family=\sffamily}
+\setbeamercolor{section in head/foot}{fg=pennblue}
+\setbeamertemplate{footline}{
+  \hspace{330px}
+  \parbox[c][10px][c]{12px}{\centering\insertframenumber}
+  \vspace{6pt}
+}
+\beamertemplatenavigationsymbolsempty
+
+\setbeamertemplate{section in toc}[sections numbered]
+\setbeamercolor{section in toc}{fg=pennred1}
+\setbeamercolor{section in toc shaded}{fg=pennblue}
+
+\setbeamerfont{frametitle}{series=\bfseries}
+\setbeamercolor{frametitle}{fg=pennblue}
+
+\setbeamercolor{normal text}{fg=pennblue}
+
+\setbeamerfont*{alerted text}{family=\sffamily, series=\bfseries}
+\setbeamercolor{alerted text}{fg=pennred3}
+
+\setbeamercolor{item}{fg=pennblue}
+\setbeamertemplate{itemize item}[circle]
+\setbeamertemplate{itemize subitem}[circle]
+
+\AtBeginSection[]{
+  {
+    \begin{frame}
+      \frametitle{Outline}
+      \tableofcontents[currentsection]
+    \end{frame}
+  }
+}
+
 \title{Data Management and Cleaning Workshop}
 \subtitle{Education Policy Research Practicum}
 \author{Patrick Lavallee Delgado}
-\institute{Unviersity of Pennsylvania Graduate School of Education}
-\date{7 February 2023}
-
-% \setbeamertemplate{footline}{
-%   \begin{beamercolorbox}[sep=1ex]{author in head/foot}
-%     \rlap{\textit{\insertshorttitle}}\hfill\hfill\llap{\insertframenumber}
-%   \end{beamercolorbox}
-% }
-
-\titlegraphic{
-  \begin{tikzpicture}[overlay,remember picture]
-    \node[left=0.2cm] at (current page.330){
-      \includegraphics[width=3cm]{in/img/penn-gse-logo.png}
-    };
-  \end{tikzpicture}
-}
-
-\AtBeginSection[]{
-  \begin{frame}
-    \frametitle{Outline}
-    \tableofcontents[currentsection]
-  \end{frame}
-}
+\institute{University of Pennsylvania Graduate School of Education}
+\date{7 February 2024}
 
 \forestset{%
   declare boolean register={my dir tree cont},
@@ -58,9 +86,12 @@
 
 \begin{document}
 
-\begin{frame}
-  \titlepage
-\end{frame}
+{
+  \usebackgroundtemplate{\includegraphics[width=\paperwidth]{tex/title-bg.png}}
+  \begin{frame}
+    \titlepage
+  \end{frame}
+}
 
 \section{Data privacy}
 
