@@ -7,6 +7,7 @@
 *.doc?
 *.ppt?
 *.pdf
+*.png
 *.zip
 *.aux
 *.bbl
@@ -19,8 +20,8 @@
 *.synctex.gz
 *.toc
 *.vrb
-.ipynb_checkpoints/*
 out/*
+/.quarto/
+.Rhistory
 !workshop.pdf
-!sch.xlsx
-!stu.csv
+!src/*.pdf

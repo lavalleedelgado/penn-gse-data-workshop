@@ -1,244 +1,138 @@
 ---
-title: "Data Management and Cleaning Workshop: Part 1"
-format: html
+title: "Data Management and Analysis Workshop: Part 1"
+format: pdf
+editor: visual
 ---
 
-# Clean data
+# Dataset assembly
 
-Imagine we want to measure student achievement and growth in seventh grade. We have data that follow students from sixth to seventh grade and describe their demographic characteristics and exit exam scores in core subjects. This notebook walks through common data cleaning tasks on an example dataset that has been engineered to resemble real data with all their issues. The code cleans the data for analysis.
+We will walk through some basic data cleaning, analysis, and visualization tasks using per pupil expenditures as a running example. The repository contains all the data and code we need, so you can just follow along! This notebook introduces data cleaning and dataset assembly.
 
 ## Load libraries
 
-The tidyverse is a popular collection of R libraries for data science. Most data wrangling tasks use functions from the dplyr and tidyr packages. For details, features, and examples not covered in these examples, please see the documentation [here](https://www.tidyverse.org/packages/).
+The tidyverse is a popular collection of R libraries for data science. They provide functions and data structures that extend what is available in base R, i.e., out-of-the-box. Most data wrangling tasks use dplyr and tidyr packages, and most data visualization is with ggplot2. For details, features, and examples not covered in this notebook, please see the documentation [here](https://www.tidyverse.org/packages/).
 
 ```{r}
-# Install packages.
-req <- c("tidyverse", "fastDummies", "openxlsx")
+# Install required packages.
+req <- c("tidyverse", "openxlsx")
 new <- req[!(req %in% installed.packages()[, "Package"])]
 if (length(new)) install.packages(new)
 
-# Load packages.
+# Load required packages.
 library(dplyr)
 library(tidyr)
-library(lubridate)
-library(ggplot2)
-library(fastDummies)
 library(openxlsx)
 ```
 
-## Read data
+## Load data
 
 Keep a simple inventory of the files that the program reads and writes at the top of the script. This will orient anyone who reads the code to its requirements and results. Everything the program needs should be contained in the repository.
 
+Set your working directory to wherever you downloaded this repository. This tells R the folder in which to look for the data and save our results. Please see the R Studio documentation [here](https://support.posit.co/hc/en-us/articles/200711843-Working-Directories-and-Workspaces-in-the-RStudio-IDE) for how to set the working directory.
+
 ```{r}
 # Identify inputs and outputs.
-PWD <- file.path(getwd(), "..")
-STU <- file.path(PWD, "in", "stu.csv")
-SCH <- file.path(PWD, "in", "sch.xlsx")
+PWD <- getwd()
+FIS <- file.path(PWD, "in", "sdf21_1a.txt")
+MEM <- file.path(PWD, "in", "ccd_lea_052_2021_l_1a_080621.csv")
 DTA <- file.path(PWD, "out", "data.rda")
-OUT <- file.path(PWD, "out", "data.xlsx")
+XLS <- file.path(PWD, "out", "data.xlsx")
 ```
 
 ```{r}
-# Load and peek at student data.
-# Need to use the function that corresponds to the file type, e.g. csv.
-stu <- read.csv(STU)
-head(stu)
+# Load and peek at the fiscal data.
+# Need to use the function that corresponds to the file type, e.g., txt.
+fis <- read.delim(FIS)
+head(fis)
+```
 
+```{r}
 # These are some helpful functions for accessing information about the dataset.
-print(paste("Number of rows:", nrow(stu)))
-print(paste("Number of columns:", ncol(stu)))
+print(paste("Number of rows:", nrow(fis)))
+print(paste("Number of columns:", ncol(fis)))
 ```
 
-## Convert text to numeric data
+## Check unique identifier
 
-The data describe race using text or "string" data, but for math reasons we need to represent the same information numerically. This section shows two ways we can do this: either as a categorical variable or as a set of mutually exclusive indicator variables. It also addresses dates.
+We think the fiscal data contain one observation for each school district. This is an important assumption that would compromise our analysis and break our code were it to fail. For example, there may be a more complicated nesting structure or duplicates that we'd need to handle first. Let's test this.
 
 ```{r}
-# Race is string data.
-table(stu$race)
-
-# Break if we get unexpected values.
-# This forces a revisit of the code if the data change.
-race_vals <- c("Asian", "Black", "Hispanic", "White")
-stopifnot(all(stu$race %in% race_vals))
+# Ensure data are at the school district level.
+leaid <- unique(fis$LEAID)
+stopifnot(nrow(fis) == length(leaid))
 ```
 
 **Technical note.** The code makes extensive use of the `stopifnot()` function as a defensive programming technique. It takes an expression that must evaluate to `TRUE`, and otherwise throws an error and stops the program. This helps document and verify assumptions of the data.
 
-```{r}
-# Cast to factor.
-# Each value is now a labeled integer.
-stu$race <- as.factor(stu$race)
-table(stu$race, as.numeric(stu$race))
-
-# Cast to indicators.
-# Each category now has its own variable.
-stu <- dummy_cols(stu, "race") |>
-  rename_with(~ tolower(gsub("race_", "", .x)))
-
-# Check correspondence.
-# We can use an existing list to let the code adapt to the data.
-stu |>
-  group_by(race) |>
-  summarize(across(tolower(race_vals), sum))
-```
-
-**Technical note.** The last example uses the pipe operator `|>` to pass (a) the output of the previous function to (b) the input of the next function. This idiom allows chaining of discrete operations into an easily readable sequence of operations.
-
-```{r}
-# Date of birth is also string data.
-table(stu$dob)
-
-# Cast to date.
-# Need to use the function that corresponds to the MM/DD/YYYY pattern.
-stu$dob <- mdy(stu$dob)
-
-# Plot the distribution of birthdays.
-# Bin dates into months.
-stu |>
-  mutate(mob = floor_date(dob, "month")) |>
-  ggplot(aes(x = mob)) +
-  geom_bar() +
-  labs(
-    title = "Birthdays",
-    x = "Month of birth",
-    y = "Count"
-  ) +
-  theme_minimal()
-```
-
 ## Handle missing data
 
-The data already describe IEP status and subject test scores using numeric values, but they contain impossible values or zero to mark missingness. Without any cleaning, a statistic of these data would be incorrect. This section shows how we can detect and address this encoding of missingness.
+The columns `MEMBERSCH` and `TOTALEXP` describe total number of students and total expenditures, respectively. We can see that they contain some negative values, which is impossible! Reading the documentation, we learn that these values mark different kinds of missingness. We need to recode these as `NA` values to correctly analyze the data.
 
 ```{r}
-# Individualized education plan is an indicator.
-summary(stu$iep)
-table(stu$iep)
-
-# Break if we get unexpected values.
-# What does "-9" mean? This will throw off any summary of IEP status.
-iep_vals <- c(-9, 0, 1)
-stopifnot(all(stu$iep %in% iep_vals))
-
-# Set missing values.
-# Assume the client gave us this definition.
-stu$iep[stu$iep == -9] <- NA
-
-# Check the summary again.
-# We can now interpret the mean as the share of students with an IEP.
-summary(stu$iep)
-stopifnot(all(stu$iep[!is.na(stu$iep)] %in% c(0, 1)))
+# Summarize students and expenditures.
+summary(fis[, c("MEMBERSCH", "TOTALEXP")])
 ```
 
 ```{r}
-# Subject test scores are continuous.
-# All subjects have some "-9" values. Social studies has a lot of zeros.
-subjs <- c("math", "ela", "sci", "soc")
-summary(stu[, subjs])
-
-# Set missing values.
-# Assume the client gave us this definition.
-stu <- mutate(stu, across(all_of(subjs), ~ replace(.x, .x == -9, NA)))
-```
-
-**Technical note.** We used base R grammar and tidyverse grammar to make the same replacement to IEP and subject test scores, respectively. Both are correct, however sometimes one is more concise than another. Like with any writing, aim for clear and simple code.
-
-```{r}
-# Note the missingness pattern.
-# Students have either all test scores or no test scores.
-for (i in seq_along(subjs)) {
-  stopifnot(all(is.na(stu[, subjs[1]]) == is.na(stu[, subjs[i]])))
-}
-
-# Break if we get unexpected values.
-# This only checks that non-missing values are in [0, 100].
-for (subj in subjs) {
-  stopifnot(min(stu[, subj], na.rm = TRUE) >= 0)
-  stopifnot(max(stu[, subj], na.rm = TRUE) <= 100)
-}
+# Tabulate negative values in students.
+table(fis$MEMBERSCH[fis$MEMBERSCH < 0])
 ```
 
 ```{r}
-# Plot the distribution of test scores in social studies.
-# Zero is perhaps not impossible, but every student received a zero in 2019.
-stu |>
-  mutate(sy = factor(sy)) |>
-  ggplot(aes(x = soc, fill = sy)) +
-  geom_histogram(position = "identity") +
-  labs(
-    title = "Social studies test scores by school year",
-    x = "Social studies score",
-    y = "Count",
-    fill = "School year"
-  ) +
-  theme_minimal()
+# Tabulate negative values in expenditures.
+table(fis$TOTALEXP[fis$TOTALEXP < 0])
 ```
 
 ```{r}
-# Set missing values.
-# Assume we verified that the district awarded no social studies scores in 2019.
-stopifnot(all(stu$soc[stu$sy == 2019 & !is.na(stu$soc)] == 0))
-stu <- mutate(stu, soc = replace(soc, sy == 2019, NA))
+# Recode missing values to NA.
+fis <- mutate(fis, across(c("MEMBERSCH", "TOTALEXP"), ~ replace(.x, .x < 0, NA)))
 ```
-
-## Handle mixed data types
-
-The data describe gender using a mix of letters and numbers. In this case, a value that looks like a number is actually represented as a string. This section shows how we can reconcile this mismatch and introduces another example of missing data.
 
 ```{r}
-# Gender has a mix of numeric and string data.
-summary(stu$gender)
-table(stu$gender)
-
-# Break if we get unexpected values.
-# Need to check what these mean against a codebook!
-gender_vals <- c("1", "2", "X")
-stopifnot(all(stu$gender %in% gender_vals))
-
-# Cast to numeric.
-# Assume the codebook defines "X" as missing.
-# This coerces "X" and all other non-numeric characters to "NA".
-stu <- stu |>
-  rename(gender_old = gender) |>
-  mutate(gender = as.numeric(gender_old))
-table(stu$gender_old, stu$gender, useNA = "ifany")
-
-# Cast to factor.
-# Assume the codebook provides this mapping of values to labels.
-gender_labs <- c("Male" = 1, "Female" = 2)
-stu <- stu |>
-  mutate(gender = factor(
-    x = gender,
-    levels = gender_labs,
-    labels = names(gender_labs)
-  ))
-table(stu$gender, as.numeric(stu$gender), useNA = "ifany")
+# Summarize students and expenditures again.
+summary(fis[, c("MEMBERSCH", "TOTALEXP")])
 ```
 
-**Technical note.** Notice how creating a factor variable for gender is more involved than creating a factor variable for race. In the previous example, we were not worried about the underlying mapping of labels to integers, e.g. "Hispanic" can be any integer. But in this example, we need to be explicit, e.g. "Male" must be "1".
+**Technical note.** We used base R grammar to filter for missing values and tidyverse grammar to replace them. Both are correct, however sometimes one is more concise than the other. Like with any writing, aim for clear and simple code.
+
+## Generate new measures
+
+Now that we have a numerator and denominator, we can calculate a rate. In statistics, we call this defining a variable. But in the tidyverse, we call this creating a column. Note that we have some school districts with zero students, so we will use a conditional statement to generate these values where we can.
 
 ```{r}
-# Cast to indicators.
-# Assume we decided to label anyone categorized as "F" or "X" as "not male".
-# Fill "NA" values in the new indicators with zero to complete coverage.
-stu <- dummy_cols(stu, "gender") |>
-  rename_with(tolower) |>
-  rename(c(male = gender_male, female = gender_female)) |>
-  mutate(across(c(male, female), ~ if_else(is.na(.x), 0, .x)))
-
-# Check correspondence.
-stu |>
-  group_by(gender_old, gender) |>
-  summarize(across(c(male, female, gender_na), sum))
+# Calculate per pupil expenditure.
+fis <- mutate(
+  fis,
+  ppe = case_when(
+    MEMBERSCH > 0 ~ TOTALEXP / MEMBERSCH,
+    .default = NA
+  )
+)
 ```
 
-**Technical note.** There are subtle but important distinctions in types of missingness. Are the data systematically missing, like social studies test scores? Or are they missing at random, like IEP status? Does a missing value for gender mean that the student did not report their gender? Or that they identify as neither male nor female? Can we distinguish these cases? Consider how this applies and whether it could affect the analysis.
+```{r}
+# Summarize per pupil expenditure.
+summary(fis$ppe)
+```
 
-## Handle duplicate data
+## Transform data
 
-The data follow students over two years, with separate records for each year. Mechanically, multiple records for a student in the same year would up-weight that student in the analysis. But more importantly, duplicates can complicate what we consider to be the truth. This section introduces strategies to deduplicate data and introduces unique identifiers.
+We're also interested in how per pupil expenditure varies by majority race, but that information is not in the fiscal data. For that, we'll need to get the membership data.
+
+```{r}
+# Load and peek at the membership data.
+# Need to use the function that corresponds to the file type, e.g., csv.
+mem <- read.csv(MEM)
+head(mem)
+```
+
+```{r}
+# Note data are not at the school district level!
+leaid <- unique(mem$LEAID)
+stopifnot(nrow(mem) > length(leaid))
+```
+
+Inspecting the data and reading the documentation, we learn that the data contain multiple observations per school district to disaggregate membership by grade, race, and gender. We want to aggregate and reshape the data to the school district level with additional columns for total membership by race.
 
 ```{r}
 # Write a function to check uniqueness of identifiers.
@@ -252,128 +146,109 @@ isid <- function(.data, ...) {
 ```
 
 ```{r}
-# Drop perfect duplicates.
-# Check, but it is probably safe to assume no loss of information.
-nobs <- nrow(stu)
-stu <- unique(stu)
-dups <- nobs - nrow(stu)
-print(paste("Perfect duplicates:", dups))
-
-# Mark remaining duplicates.
-# This checks whether the number of rows within a student-year exceeds 1.
-stu <- stu |>
-  group_by(stuid, sy) |>
-  mutate(is_dup = n() > 1) |>
-  ungroup()
-table(stu$is_dup)
-
-# Show duplicates.
-# Looks like some have multiple records for suspensions. Which is right?
-stu |>
-  filter(is_dup) |>
-  arrange(stuid, sy) |>
-  select(-is_dup)
-```
-
-```{r}
-# Deduplicate.
-# Assume we have no preference between records, so we take the average.
-# Student ID and school year now uniquely identify rows in the dataset.
-stu <- stu |>
-  group_by(stuid, sy) |>
-  mutate(oss = if_else(is_dup, mean(oss), oss)) |>
+# Aggregate and reshape to the school district level.
+lea <- mem |>
+  # Select observations for the race-gender level.
+  filter(TOTAL_INDICATOR == "Derived - Subtotal by Race/Ethnicity and Sex minus Adult Education Count") |>
+  # Consolidate race/ethnicity categories with shorthand labels.
+  mutate(race = case_match(
+    RACE_ETHNICITY,
+    "Asian"                                         ~ "asian",
+    "Black or African American"                     ~ "black",
+    "Hispanic/Latino"                               ~ "hisp",
+    "White"                                         ~ "white",
+    c("American Indian or Alaska Native",
+      "Native Hawaiian or Other Pacific Islander",
+      "Two or more races",
+      "Not Specified")                              ~ "other"
+  )) |>
+  # Sum membership by race and overall within district.
+  group_by(LEAID, race) |>
+  summarize(n = sum(STUDENT_COUNT, na.rm = TRUE)) |>
+  isid(LEAID, race) |>
+  mutate(tot = sum(n)) |>
   ungroup() |>
-  unique() |>
-  isid(stuid, sy)
-```
-
-## Reshape and merge data
-
-The data that describe schools are in a different sort of rectangle than that for students. This section describes changing the shape of the data without changing the data itself. It also shows how to combine two datasets.
-
-```{r}
-# Load and peek at school data.
-# Need to use the function that corresponds to the file type, e.g. Excel.
-sch <- read.xlsx(SCH, sheet = "sch")
-head(sch)
-```
-
-```{r}
-# Transform to school-year level.
-# Note each row describes one school over multiple years. These are "wide" data.
-# We can construct a school year variable from the information encoded in the
-# column names to make additional rows for each school and school year.
-sch <- sch |>
-  isid(schid) |>
-  pivot_longer(
-    # Columns to pivot.
-    cols = starts_with(c("frpl", "enrl")),
-    # Regular expression to parse data encoded in pivot column names.
-    names_pattern = "^([a-z]+)([0-9]+)$",
-    # New columns to create; ".value" gets corresponding capture group above.
-    names_to = c(".value", "sy"),
-    # Cast school year as numeric.
-    names_transform = list(sy = as.integer)
+  # Reshape to district level.
+  pivot_wider(names_from = race, values_from = n) |>
+  isid(LEAID) |>
+  # Calculate group shares.
+  rowwise() |>
+  mutate(across(
+    c(asian, black, hisp, white, other),
+    ~ .x / tot * 100,
+    .names = "pct_{.col}"
+  )) |>
+  # Create indicators on majority status.
+  mutate(across(
+    c(asian, black, hisp, white, other),
+    ~ if_else(tot == 0, FALSE, .x / tot > 0.5),
+    .names = "maj_{.col}"
+    )
   ) |>
-  mutate(sy = 2000 + sy) |>
-  isid(schid, sy)
+  ungroup() |>
+  # Identify majority group.
+  mutate(maj_group = case_when(
+    maj_asian ~ "asian",
+    maj_black ~ "black",
+    maj_hisp  ~ "hisp",
+    maj_white ~ "white",
+    maj_other ~ "other",
+    tot > 0   ~ "none"
+  ))
 ```
 
-**Technical note.** The challenge with `pivot_longer()` is describing how to parse existing column names for variables and values. Here is how it works:
-1. The column `frpl18` contains the variables `frpl` and `sy` and the value `18`.
-2. The argument `names_pattern` splits the column name `frpl18` into `frpl` and `18`. Notice the two sets of parenthesis to demarcate two capture groups.
-3. The argument `names_to` creates columns named `frpl` to store the data and `sy` to store the value `18`. Notice both arguments describe two columns.
+**Technical note.** The last example uses the pipe operator `|>` to pass (a) the output of the previous function to (b) the input of the next function. This idiom allows chaining of discrete operations into an easily readable sequence of operations.
+
+## Merge data
+
+With both datasets cleaned, we can bring them together to assemble our analysis file. Specifically, we will join the columns by matching their rows with the school district identifier. We can say that the dataframes have a one-to-one relationship because each row in one will match to at most one row in the other.
 
 ```{r}
-# Merge student and school data.
-# This adds columns from the second data frame to the first by matching rows on
-# shared keys. Note the relationship between the keys of both data frames.
-stu_sch_long <- left_join(
-  stu,
-  sch,
-  by = c("schid", "sy"),
-  relationship = "many-to-one"
-) |>
-isid(stuid, sy)
-
-# Check what did not merge.
-# Filters the first data frame for rows that do not match in the second. Note
-# that all students match, but not all schools do.
-check <- anti_join(stu, sch, by = c("schid", "sy"))
-stopifnot(nrow(check) == 0)
-anti_join(sch, stu, by = c("schid", "sy"))
+# Merge fiscal and membership data.
+dta <- fis |>
+  # Numericize school district identifier to enable merge.
+  mutate(LEAID = as.numeric(LEAID)) |>
+  # Merge datasets and keep matches.
+  inner_join(lea, by = "LEAID", relationship = "one-to-one") |>
+  # Keep non-missing values.
+  filter(!is.na(ppe) & !is.na(maj_group))
 ```
 
-**Technical note.** The relationship describes the association between datasets. In this example, "many-to-one" means that we expect to associate many students with one school. And at the same time, we do not expect to associate a student with many schools. A "one-to-one" relationship implies that the datasets have the same unique identifiers. Always check what does not match!
+Note that the inner join only keeps school districts that exist in both dataframes. We also drop school districts with missing values. We need to check how much of the sample we lose due to these decisions.
 
 ```{r}
-# Make analytic dataset.
-# Transform data so that each student in the regression has their own row.
-stu_sch_wide <- stu_sch_long |>
-  # Ensure data are unique by student-year and student-grade.
-  isid(stuid, sy) |>
-  isid(stuid, grade) |>
-  # Drop unnecessary columns that vary by student.
-  select(-c(sy, is_dup)) |>
-  # Reshape wide on grade.
-  pivot_wider(
-    names_from = grade,
-    values_from = c(iep, math, ela, sci, soc, oss, frpl, enrl)
-  ) |>
-  isid(stuid)
+# Check number of districts dropped in merge.
+all_leaid <- unique(c(as.numeric(fis$LEAID), mem$LEAID))
+pct_retain <- nrow(dta) / length(all_leaid) * 100
+print(paste("Percent of districts retained:", sprintf("%3.2f", pct_retain)))
 ```
 
-## Save clean file
+This seems like a lot. In a real project, we would go back to see how these school districts are distinct from the sample retained and whether they belong. If they do, we would need to find a way to recover the missing data or understand how our analysis could be biased.
+
+## Save file
+
+As a last step, keep just the data elements required and rename columns for readability.
+
+```{r}
+# Clean up.
+dta <- dta |>
+  # Choose one column for total district enrollment.
+  select(-tot) |>
+  rename(tot = MEMBERSCH) |>
+  # Rename columns.
+  rename(exp = TOTALEXP) |>
+  rename_with(tolower, everything()) |>
+  # Keep and reorder required columns.
+  select(leaid, name, stname, tot, exp, ppe, starts_with("pct_"), maj_group)
+```
 
 With data cleaning complete, save the analysis file for use in the analysis program. Come back to the cleaning program to implement major revisions that the analysis requires. Aim to keep the workflow simple so that anyone who looks through the repository can follow along.
 
 ```{r}
-# Save to load into another R program.
-# This saves the long and wide datasets just as they are.
-save(stu_sch_long, stu_sch_wide, file = DTA)
+# Save dataset to load into another R program.
+# This puts the dataframe into the same namespace.
+save(dta, file = DTA)
 
 # Save to Excel workbook.
-# Provide a named list to write multiple datasets to different worksheets.
-ws <- list("long" = stu_sch_long, "wide" = stu_sch_wide)
-write.xlsx(ws, OUT)
+write.xlsx(dta, XLS)
 ```

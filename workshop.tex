@@ -1,27 +1,35 @@
 \documentclass{beamer}
 \usepackage{tikz}
-\usepackage[edges]{forest}        % Draw linguistic trees.
-\usepackage{listings}             % Extend verbatim environment.
-\usepackage{hyperref}             % Enable hyperlinks.
+\usetikzlibrary{positioning}
+\usepackage[edges]{forest}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{hyperref}
 \setlength{\parskip}{\baselineskip}
 
 \usefonttheme{serif}
-\definecolor{pennred1}{RGB}{192,0,0}
-\definecolor{pennred2}{RGB}{153,0,0}
-\definecolor{pennred3}{RGB}{238,45,56}
-\definecolor{pennblue}{RGB}{0,40,86}
 
-\setbeamercolor{title}{fg=white}
-\setbeamercolor{author}{fg=white}
-\setbeamercolor{institute}{fg=white}
-\setbeamercolor{date}{fg=white}
+\definecolor{pennred1}{RGB}{153, 0, 0}
+\definecolor{pennred2}{RGB}{248, 6, 36}
+\definecolor{pennred3}{RGB}{203, 55, 37}
+\definecolor{pennblue1}{RGB}{0, 40, 86}
+\definecolor{pennblue2}{RGB}{0, 46, 92}
 
-\usebackgroundtemplate{
-  \parbox[c][\paperheight][c]{\paperwidth}{\centering\includegraphics[width=5in]{tex/slide-bg.png}}
-}
+\definecolor{pennaccentred}{RGB}{203, 55, 37}
+\definecolor{pennaccentpurple}{RGB}{77, 65, 133}
+\definecolor{pennaccentgreen}{RGB}{0, 110, 71}
+\definecolor{pennaccentyellow}{RGB}{255, 159, 25}
+\definecolor{pennaccentgray}{RGB}{65, 84, 100}
+
+\setbeamercolor{title}{fg=pennblue1}
+\setbeamercolor{author}{fg=pennblue1}
+\setbeamercolor{institute}{fg=pennblue1}
+\setbeamercolor{date}{fg=pennblue1}
 
 \setbeamerfont{section in head/foot}{family=\sffamily}
-\setbeamercolor{section in head/foot}{fg=pennblue}
+\setbeamercolor{section in head/foot}{fg=pennblue1}
 \setbeamertemplate{footline}{
   \hspace{330px}
   \parbox[c][10px][c]{12px}{\centering\insertframenumber}
@@ -31,19 +39,26 @@
 
 \setbeamertemplate{section in toc}[sections numbered]
 \setbeamercolor{section in toc}{fg=pennred1}
-\setbeamercolor{section in toc shaded}{fg=pennblue}
+\setbeamercolor{section in toc shaded}{fg=pennblue1}
 
 \setbeamerfont{frametitle}{series=\bfseries}
-\setbeamercolor{frametitle}{fg=pennblue}
+\setbeamercolor{frametitle}{fg=pennblue1}
 
-\setbeamercolor{normal text}{fg=pennblue}
+\setbeamercolor{normal text}{fg=pennblue1}
+
+\setbeamercolor{block title}{bg=pennblue1, fg=white}
+\setbeamercolor{block body}{bg=pennblue1!10}
 
 \setbeamerfont*{alerted text}{family=\sffamily, series=\bfseries}
 \setbeamercolor{alerted text}{fg=pennred3}
 
-\setbeamercolor{item}{fg=pennblue}
+\setbeamercolor{item}{fg=pennblue1}
 \setbeamertemplate{itemize item}[circle]
 \setbeamertemplate{itemize subitem}[circle]
+
+\setbeamertemplate{caption}{\raggedright\insertcaption\par}
+
+\setbeamerfont{caption}{size=\normalsize}
 
 \AtBeginSection[]{
   {
@@ -54,11 +69,11 @@
   }
 }
 
-\title{Data Management and Cleaning Workshop}
+\title{Data management and analysis workshop}
 \subtitle{Education Policy Research Practicum}
 \author{Patrick Lavallee Delgado}
-\institute{University of Pennsylvania Graduate School of Education}
-\date{7 February 2024}
+\institute{University of Pennsylvania, Graduate School of Education}
+\date{29 January 2025}
 
 \forestset{%
   declare boolean register={my dir tree cont},
@@ -86,12 +101,9 @@
 
 \begin{document}
 
-{
-  \usebackgroundtemplate{\includegraphics[width=\paperwidth]{tex/title-bg.png}}
-  \begin{frame}
-    \titlepage
-  \end{frame}
-}
+\begin{frame}
+  \titlepage
+\end{frame}
 
 \section{Data privacy}
 
@@ -101,17 +113,15 @@
 
   \only<1>{
 
-    Data is great and all, but\dots
+    The individuals in your data have a right to and expectation of privacy.
 
     Many laws and regulations govern access and disclosure of personal data, rules which extend to research. Major legislation in the US includes:
 
     \begin{itemize}
-
       \item National Research Act (IRB)
       \item FERPA (students)
       \item COPPA (children online)
       \item HIPAA (health)
-
     \end{itemize}
 
     Some data are subject to more stringent regulation by other jurisdictions, such as GDPR (EU) and CCPA (California).
@@ -124,18 +134,18 @@
 
     \begin{itemize}
 
-      \item Personally identifiable information (PII): information or groupings of information that can distinguish or trace the identity of an individual, e.g. name, social security number.
+      \item Personally identifiable information (PII): information or groupings of information that can distinguish or trace the identity of an individual, e.g., name, social security number.
 
-      \item Controlled unclassified information (CUI): information the government owns that requires safeguarding or dissemination controls as provided by law or regulation, e.g. trade secrets, budget and policy deliberations.
+      \item Controlled unclassified information (CUI): information the government owns that requires safeguarding or dissemination controls as provided by law or regulation, e.g., trade secrets, budget and policy deliberations.
 
     \end{itemize}
 
-    \begin{alertblock}{Note}
+    \vskip 1 em
+    \begin{block}{Note}
       Negligence can cause harm. Researchers have a legal and ethical responsibility to ensure data privacy and security.
-    \end{alertblock}
+    \end{block}
 
   }
-
 
 \end{frame}
 
@@ -143,11 +153,12 @@
 
   A data use agreement (DUA) governs the exchange of data, establishing who is permitted to access the data, how they can use the data, and what can be disclosed of the data.
 
-  The DUA may require that the data be stored and processed in a secure location, e.g. remote server, cold room. It may also require that the data be destroyed upon project completion.
+  The DUA may require that the data be stored and processed in a secure location, e.g., remote server, cold room. It may also require that the data be destroyed upon project completion.
 
-  \begin{alertblock}{Note}
+  \vskip 1 em
+  \begin{block}{Note}
     We will store data on Box and invite you to the Box folder. \textit{Do not move, copy, or share data out of the Box folder}.
-  \end{alertblock}
+  \end{block}
 
 \end{frame}
 
@@ -155,16 +166,14 @@
 
 \begin{frame}{Repository}
 
-  The repository is the container for all project work. It documents and demonstrates -- in words and code -- how the data answer the research questions, and allows the client to replicate the results.
+  The repository is the container for all project work. It documents and demonstrates -- in words and in code -- how the data answer the research questions and allows the client to replicate the results.
 
   Replication should be turnkey. Anyone who returns to your work should be able to:
 
   \begin{itemize}
-
     \item Run your code with minimal effort and without error.
     \item Get the same results in your report and presentation.
     \item Understand what you did, how you did it, and why.
-
   \end{itemize}
 
 \end{frame}
@@ -214,17 +223,31 @@
 
 \begin{frame}{Documentation}
 
-  \begin{itemize}
+  \only<1>{
 
-    \item \textbf{Describe and defend.} Demonstrate the thought, intention, and thoroughness of your work and help others understand what might not be obvious about the data and analysis.
+    \begin{itemize}
 
-    \item \textbf{Data description.} Discuss the data used in the analysis with the final report. List the data sources, data elements, summary statistics, and major decisions in cleaning and variable construction.
+      \item \textbf{Describe and defend.} Demonstrate the thought, intention, and thoroughness of your work and help others understand what might not be obvious about the data and analysis.
 
-    \item \textbf{Comment your code.} Provide in-line notes that describe what the code is doing. They helps non-programmers follow along, a reviewer verify the code does as you intend, and your future self pick up from where you left off.
+      \item \textbf{Data description.} Discuss the data used in the analysis with the final report. List the data sources, data elements, summary statistics, and major decisions in cleaning and variable construction.
 
-    \item \textbf{README.} This file gives an overview of the repository and how to use it. It also lists any additional requirements for replication, usually software.
+      \item \textbf{Comment your code.} Provide in-line notes that describe what the code is doing. This helps non-programmers follow along, a reviewer to verify the code does as you intend, and your future self to pick up from where you left off.
 
-  \end{itemize}
+    \end{itemize}
+
+  }
+
+  \only<2>{
+
+    \begin{itemize}
+
+      \item \textbf{README.} This file gives an overview of the repository and how to use it. It also lists any additional requirements for replication, usually software.
+
+      \item \textbf{Codebook.} This file describes each variable in the dataset assembled for the analysis, including labels, summary statistics, and notes about construction.
+
+    \end{itemize}
+
+  }
 
 \end{frame}
 
@@ -276,6 +299,50 @@
 
 \end{frame}
 
+\begin{frame}{Sample codebook}
+
+  \only<1>{
+
+    \begin{table}
+      \centering
+      \caption*{\texttt{race}: Student race classification}
+      \begin{tabular}{rlr}
+        \toprule
+        Value & Label & Frequency \\
+        \hline
+        1 & White & 600 \\
+        2 & Black & 250 \\
+        3 & Hispanic & 250 \\
+        4 & Other & 60 \\
+        -9 & Missing & 10 \\
+        \bottomrule
+      \end{tabular}
+    \end{table}
+
+    Notes: ``Other'' includes students classified as Asian, American Indian or Alaskan Native, Native Hawaiian or Pacific Islander, and of two or more races.
+
+  }
+
+  \only<2>{
+
+    \begin{table}
+      \centering
+      \caption*{\texttt{gpa}: Student grade point average}
+      \begin{tabular}{ccccccc}
+        \toprule
+        Mean & Min. & 25\% & 50\% & 75\% & Max. & Miss. \\
+        \hline
+        2.81 & 0.00 & 1.51 & 2.30 & 3.32 & 4.00 & 20 \\
+        \bottomrule
+      \end{tabular}
+    \end{table}
+
+    Notes: Passing marks where no letter grade was awarded are coded to 3 grade points. Students who were not enrolled or withdrew before the end of the semester are coded to missing.
+
+  }
+
+\end{frame}
+
 \begin{frame}[fragile]{Quality assurance}
 
   \only<1>{
@@ -321,17 +388,70 @@ df <- left_join(df, sch, by = "sch_id",
 
 \end{frame}
 
-\section{Data cleaning}
+\section{Data analysis}
+
+\begin{frame}{Example project}
+
+  Imagine we are interested in exploring investments in students by the racial composition of school districts. Specifically, we have two research questions:
+
+  \begin{description}
+    \item[RQ1.] How does per pupil expenditure vary by school district composition?
+    \item[RQ2.] Do these differences change with the size of the majority group?
+  \end{description}
+
+  In service of these research questions, we have publicly available data on the universe of public school districts in the US from the Common Core of Data.
+
+\end{frame}
+
+\begin{frame}{Data analysis pipeline}
+
+  The data analysis pipeline is the series of processing steps that turn raw data into results. Work backwards from the anticipated deliverables to scope the pipeline:
+
+  \begin{enumerate}
+    \item[4.] What tables and figures would answer the questions?
+    \item[3.] What statistics would populate them?
+    \item[2.] What measures do the analyses require?
+    \item[1.] What data are available?
+  \end{enumerate}
+
+  \vskip 1 em
+  \begin{block}{Note}
+    You may need to revise the research questions and empirical strategy to work within the constraints of the data you have.
+  \end{block}
+
+\end{frame}
+
+\begin{frame}{Table shell}
+
+  Start with a mock-up of the table that would present the study findings. What would the data analysis pipeline need to be?
+
+  \begin{table}
+    \centering
+    \caption*{Per-pupil expenditure by district composition}
+    \begin{tabular}{lcc}
+      \toprule
+      & \multirow{2}{6 em}{\centering Number of districts} & \multirow{2}{10 em}{\centering Average per-pupil expenditure} \\ \\
+      \cmidrule(lr){2-3}
+      Majority Asian \\
+      Majority Black \\
+      Majority Hispanic \\
+      Majority White \\
+      No majority \\
+      All districts \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+
+\end{frame}
 
 \begin{frame}{Workshop}
 
-  Imagine we want to measure student achievement and growth in seventh grade. We have data that follow students from sixth to seventh grade and describe their demographic characteristics and exit exam scores in core subjects.
-
-  The notebooks linked below walk through common data cleaning and analysis tasks on an example dataset engineered to resemble real data.
+  The notebooks linked below walk through common data analysis tasks for this example project:
 
   \begin{itemize}
-    \item \href{https://github.com/lavalleedelgado/penn-gse-data-workshop/blob/main/src/01-clean-data.ipynb}{Cleaning example}
-    \item \href{https://github.com/lavalleedelgado/penn-gse-data-workshop/blob/main/src/02-run-analysis.ipynb}{Analysis example}
+    \item \href{https://github.com/lavalleedelgado/penn-gse-data-workshop/blob/main/src/01-clean-data.qmd}{Dataset assembly}
+    \item \href{https://github.com/lavalleedelgado/penn-gse-data-workshop/blob/main/src/02-run-analysis.qmd}{Analysis}
+    \item \href{https://github.com/lavalleedelgado/penn-gse-data-workshop/blob/main/src/03-draw-plots.qmd}{Visualization}
   \end{itemize}
 
 \end{frame}

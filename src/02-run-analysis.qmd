@@ -1,115 +1,101 @@
 ---
-title: "Data Management and Cleaning Workshop: Part 2"
-format: html
+title: "Data Management and Analysis Workshop: Part 2"
+format: pdf
+editor: visual
 ---
 
-# Run analysis
+# Data analysis
 
-Imagine we want to measure student achievement and growth in seventh grade. We have data that follow students from sixth to seventh grade and describe their demographic characteristics and exit exam scores in core subjects. This notebook walks through common data analysis tasks on an example clean dataset. The code explores relationships in the data with plots, tables, and regressions.
+We will walk through some basic data cleaning, analysis, and visualization tasks using per pupil expenditures as a running example. The repository contains all the data and code we need, so you can just follow along! This notebook introduces descriptive statistics and regression.
+
+## Set up
 
 ```{r}
-# Load packages.
+# Install required packages.
+req <- c("tidyverse", "openxlsx", "broom")
+new <- req[!(req %in% installed.packages()[, "Package"])]
+if (length(new)) install.packages(new)
+
+# Load required packages.
 library(dplyr)
 library(tidyr)
-library(ggplot2)
 library(broom)
 library(openxlsx)
+```
 
+```{r}
 # Identify inputs and outputs.
-PWD <- file.path(getwd(), "..")
+PWD <- getwd()
 DTA <- file.path(PWD, "out", "data.rda")
-FIG <- file.path(PWD, "out", "plot.png")
-OUT <- file.path(PWD, "out", "analysis.xlsx")
+OUT <- file.path(PWD, "out", "tables.xlsx")
 ```
 
 ```{r}
-# Read long and wide analysis files.
-# This loads the two datasets we created into the same namespaces.
+# Load analysis file.
+# This loads the dataset we created into the same namespace.
 load(DTA)
-head(stu_sch_long)
-head(stu_sch_wide)
+head(dta)
 ```
 
-## Plot associations
+## Descriptive statistics
 
 ```{r}
-# Plot test scores by race.
-# Transform data so that each point on the plot is a separate row.
-stu_sch_long |>
-  select(stuid, grade, gender, race, math, ela) |>
-  filter(!is.na(gender)) |>
-  # Reshape long on test subject.
-  pivot_longer(
-    cols = c(math, ela),
-    names_to = "test_subj",
-    values_to = "test_val"
+# Summarize per pupil expenditure and racial composition by majority status.
+tab1 <- dta |>
+  group_by(maj_group) |>
+  summarize(
+    n = n(),
+    across(ppe, list(mean = mean, min = min, max = max), .names = "{.col}_{.fn}"),
+    ppe_p25 = quantile(ppe, probs = 0.25),
+    ppe_p50 = quantile(ppe, probs = 0.5),
+    ppe_p75 = quantile(ppe, probs = 0.75),
+    across(starts_with("pct_"), ~ mean(.x))
   ) |>
-  # Reshape wide on grade.
-  pivot_wider(
-    names_from = grade,
-    names_prefix = "grade_",
-    values_from = test_val
-  ) |>
-  # Draw plot.
-  ggplot(aes(x = grade_6, y = grade_7, color = race)) +
-  geom_point() +
-  geom_abline() +
-  facet_wrap(
-    facets = vars(gender, test_subj),
-    labeller = labeller(test_subj = as_labeller(c(
-      "math" = "Math",
-      "ela" = "English/Language Arts"
-    )))
-  ) +
-  labs(
-    title = "Math and ELA test score growth by gender and race",
-    x = "6th grade score",
-    y = "7th grade score",
-    color = "Race"
-  ) +
-  theme_minimal()
-
-# Save the figure.
-ggsave(FIG)
+  mutate(pct = n / nrow(dta) * 100) |>
+  relocate(pct, .after = n) |>
+  relocate(c(ppe_p25, ppe_p50, ppe_p75), .after = ppe_min)
 ```
 
-## Calculate summary statistics
+## RQ1: How does per pupil expenditure vary by school district composition?
 
 ```{r}
-# Calculate unadjusted means by grade and gender.
-tab1 <- stu_sch_long |>
-  group_by(grade, female) |>
-  summarize(across(c(math, ela, sci, soc), ~ mean(.x, na.rm = TRUE)))
-tab1
+# Set the reference group among categories.
+table(dta$maj_group)
+dta$maj_group <- relevel(as.factor(dta$maj_group), ref = "white")
 ```
 
-## Fit regression models
-
 ```{r}
-# Estimate differences in math scores by gender, conditional on prior scores.
-# Growth among students classified as female decreased by 0.5 points on average.
-# Results are statistically different from zero at the 5% level.
-reg1 <- lm(math_7 ~ female + math_6, data = stu_sch_wide)
+# Estimate the partial effects of district composition on per pupil expenditure.
+f1 <- ppe ~ maj_group
+reg1 <- lm(f1, data = dta)
 summary(reg1)
+```
 
-# Set the reference group in the race category to White.
-stu_sch_wide$race <- relevel(stu_sch_wide$race, ref = "White")
+## RQ2: Do these differences change with the size of the majority group?
 
-# Estimate differences in ELA scores by race, conditional on prior scores.
-# Disparities in growth are not statistically different from zero.
-reg2 <- lm(ela_7 ~ race + ela_6, data = stu_sch_wide)
+```{r}
+# Get the size of the majority group, i.e., the largest share.
+dta <- dta |>
+  rowwise() |>
+  mutate(
+    pct_max = max(c_across(starts_with("pct_"))),
+    pts_maj = pct_max - 50
+  ) |>
+  ungroup()
+```
+
+```{r}
+# Estimate the partial effects of group majority size on per pupil expenditure.
+f2 <- ppe ~ maj_group * pts_maj
+reg2 <- lm(f2, data = dta)
 summary(reg2)
 ```
 
-## Save results
+## Save tables
 
 ```{r}
-# Collect regression output.
-regs <- list("math_female" = reg1, "ela_race" = reg2) |>
-  lapply(tidy) |>
-  bind_rows(.id = "model")
-
-# Save tabulation and regression output to Excel.
-ws <- list("summaries" = tab1, "models" = regs)
+# Write tables to workbook.
+# Provide a named list to write dataframes to different worksheets.
+ws <- list("Summary" = tab1, "RQ1" = tidy(reg1), "RQ2" = tidy(reg2))
 write.xlsx(ws, OUT)
 ```
